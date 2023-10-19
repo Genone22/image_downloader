@@ -1,0 +1,49 @@
+import asyncio
+import aiohttp
+import openpyxl
+from aiofiles import open as aio_open
+import urllib.parse
+
+
+async def download_image(session, url, destination_folder):
+    try:
+        async with session.get(url) as response:
+            if response.status == 200:
+                file_name = urllib.parse.quote(url, safe='')
+                file_path = f"{destination_folder}/{file_name}.jpg"
+                async with aio_open(file_path, 'wb') as file:
+                    await file.write(await response.read())
+                print(f"Загружено: {url}")
+            else:
+                print(f"Не удалось загрузить: {url}")
+    except Exception as e:
+        print(f"Ошибка при загрузке {url}: {str(e)}")
+
+
+async def main():
+    excel_file = "urls.xlsx"
+    destination_folder = "downloaded_images"
+
+    import os
+    os.makedirs(destination_folder, exist_ok=True)
+
+    async with aiohttp.ClientSession() as session:
+        workbook = openpyxl.load_workbook(excel_file)
+        worksheet = workbook.active
+        ''' Внутри генератора мы проходим по каждой строке, 
+        представленной переменной row, и получаем значение из первого столбца 
+        в этой строке с помощью worksheet.cell(row=row, column=1).value. 
+        Таким образом, мы создаем список всех значений в первом столбце 
+        таблицы Excel.'''
+        urls = [worksheet.cell(row=row, column=1).value for row in range(1, worksheet.max_row + 1)]
+
+        tasks = []
+        for url in urls:
+            tasks.append(download_image(session, url, destination_folder))
+
+        await asyncio.gather(*tasks)
+
+if name == "main":
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.run_until_complete(main())
